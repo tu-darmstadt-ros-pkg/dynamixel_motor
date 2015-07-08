@@ -64,9 +64,9 @@ class JointPositionController(JointController):
         else:
             self.acceleration = None
 
-        if rospy.has_param(self.controller_namespace + 'write_angle_limits_to_servo')
-            self.write_limits_to_servo = rospy.get_param(self.controller_namespace + 'write_angle_limits_to_servo')
-        else
+        if rospy.has_param(self.controller_namespace + '/write_limits_to_servo'):
+            self.write_limits_to_servo = rospy.get_param(self.controller_namespace + '/write_limits_to_servo')
+        else:
             self.write_limits_to_servo = False
         
         self.flipped = self.min_angle_raw > self.max_angle_raw
@@ -114,9 +114,12 @@ class JointPositionController(JointController):
         if self.joint_speed < self.MIN_VELOCITY: self.joint_speed = self.MIN_VELOCITY
         elif self.joint_speed > self.joint_max_speed: self.joint_speed = self.joint_max_speed
         
-        if self.write_limits_to_servo: self.set_angle_limits_raw(self.min_angle_raw, self.max_angle_raw)
         self.set_speed(self.joint_speed)
-        
+
+        if self.write_limits_to_servo:
+            rospy.logwarn("Limits from params are written to servo. Be careful!")
+            self.set_angle_limits_raw(self.min_angle_raw, self.max_angle_raw)
+
         return True
 
     def pos_rad_to_raw(self, pos_rad):
@@ -130,6 +133,13 @@ class JointPositionController(JointController):
         # velocity of 0 means maximum, make sure that doesn't happen
         return max(1, int(round(spd_rad / self.VELOCITY_PER_TICK)))
 
+    def set_angle_limits_raw(self, min_angle_raw, max_angle_raw):
+        try:
+            self.dxl_io.set_angle_limits(self.motor_id, min_angle_raw, max_angle_raw)
+        except Exception, e:
+            rospy.logwarn("dynamixel_io.py function __read_response throws an exeption. Limits should be set nevertheless.\nException %s", e)
+            pass
+
     def set_torque_enable(self, torque_enable):
         mcv = (self.motor_id, torque_enable)
         self.dxl_io.set_multi_torque_enabled([mcv])
@@ -137,10 +147,6 @@ class JointPositionController(JointController):
     def set_speed(self, speed):
         mcv = (self.motor_id, self.spd_rad_to_raw(speed))
         self.dxl_io.set_multi_speed([mcv])
-
-    def set_angle_limits_raw(self, min_angle_raw, max_angle_raw):
-        mcv = (self.motor_id, min_angle_raw, max_angle_raw)
-        self.dxl_io.set_angle_limits([mcv])
 
     def set_compliance_slope(self, slope):
         if slope < DXL_MIN_COMPLIANCE_SLOPE: slope = DXL_MIN_COMPLIANCE_SLOPE
