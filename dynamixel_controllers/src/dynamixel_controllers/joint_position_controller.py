@@ -63,6 +63,11 @@ class JointPositionController(JointController):
             self.acceleration = rospy.get_param(self.controller_namespace + '/motor/acceleration')
         else:
             self.acceleration = None
+
+        if rospy.has_param(self.controller_namespace + 'write_angle_limits_to_servo')
+            self.write_limits_to_servo = rospy.get_param(self.controller_namespace + 'write_angle_limits_to_servo')
+        else
+            self.write_limits_to_servo = False
         
         self.flipped = self.min_angle_raw > self.max_angle_raw
         
@@ -109,6 +114,7 @@ class JointPositionController(JointController):
         if self.joint_speed < self.MIN_VELOCITY: self.joint_speed = self.MIN_VELOCITY
         elif self.joint_speed > self.joint_max_speed: self.joint_speed = self.joint_max_speed
         
+        if self.write_limits_to_servo: self.set_angle_limits_raw(self.min_angle_raw, self.max_angle_raw)
         self.set_speed(self.joint_speed)
         
         return True
@@ -131,6 +137,10 @@ class JointPositionController(JointController):
     def set_speed(self, speed):
         mcv = (self.motor_id, self.spd_rad_to_raw(speed))
         self.dxl_io.set_multi_speed([mcv])
+
+    def set_angle_limits_raw(self, min_angle_raw, max_angle_raw):
+        mcv = (self.motor_id, min_angle_raw, max_angle_raw)
+        self.dxl_io.set_angle_limits([mcv])
 
     def set_compliance_slope(self, slope):
         if slope < DXL_MIN_COMPLIANCE_SLOPE: slope = DXL_MIN_COMPLIANCE_SLOPE
